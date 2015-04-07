@@ -29,6 +29,7 @@ module Authority
     end
 
     module Definitions
+      define_method("accessible_by") { |*args| authorizer.send("accessible_by", *args) }
       # Send all calls like `editable_by?` to an authorizer instance
       # Not using Forwardable because it makes it harder for users to track an ArgumentError
       # back to their authorizer
