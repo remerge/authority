@@ -6,7 +6,9 @@ module Authority
     initializer "authority.controller" do
       # Include here instead of ApplicationController to avoid being lost when
       # classes are reloaded in Rails' development mode
-      ActionController::Base.send(:include, Authority::Controller)
+      Rails.application.config.to_prepare do
+        ActionController::Base.send(:include, Authority::Controller)
+      end
     end
 
   end
