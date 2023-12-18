@@ -1,4 +1,12 @@
-# Authority
+# Authority *(CURRENTLY UNMAINTAINED)*
+
+Authority is now unmaintained.
+Users who have installed it decided to trust me, and I'm not comfortable transferring that trust to someone else on their behalf.
+However, if you'd like to fork it, feel free.
+
+Gary Foster has provided a [script to migrate to Pundit](https://gist.github.com/garyfoster/5f1aba65b20ac7464e7e9642ea966c3f).
+
+## Overview
 
 Authority helps you authorize actions in your Ruby app. It's **ORM-neutral** and has very little fancy syntax; just group your models under one or more Authorizer classes and write plain Ruby methods on them.
 
@@ -6,10 +14,11 @@ Authority will work fine with a standalone app or a single sign-on system. You c
 
 If you're using it with Rails controllers, it requires that you already have some kind of user object in your application, accessible via a method like `current_user` (configurable).
 
-[![Gem Version](https://badge.fury.io/rb/authority.png)](https://rubygems.org/gems/searchlight)
+[![Gem Version](https://badge.fury.io/rb/authority.png)](https://rubygems.org/gems/authority)
 [![Build Status](https://secure.travis-ci.org/nathanl/authority.png?branch=master)](http://travis-ci.org/nathanl/authority)
 [![Code Climate](https://codeclimate.com/github/nathanl/authority.png)](https://codeclimate.com/github/nathanl/authority)
 [![Dependency Status](https://gemnasium.com/nathanl/authority.png)](https://gemnasium.com/nathanl/authority)
+[![Join the chat at https://gitter.im/nathanl/authority](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/nathanl/authority?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 ## Contents
 
@@ -120,6 +129,8 @@ The authorization process generally flows like this:
                                                                      # defines the method as `return false`.)
 
 If the answer is `false` and the original caller was a controller, this is treated as a `SecurityViolation`. If it was a view, maybe you just don't show a link.
+
+The authorization process for instances is different in that it calls the instance's `default` method before calling the class `default` method. This allows you to define default behaviour that requires access to the model instance to be determined (eg, assume any action on a blog post is allowed if that post is marked 'wiki').
 
 (Diagrams made with [AsciiFlow](http://asciiflow.com))
 
@@ -367,7 +378,12 @@ class LlamasController < ApplicationController
 end
 ```
 
-As with other authorization checks, you can also pass options here, and they'll be sent along to your authorization method: `authorize_action_for(@llama, :sporting => @hat_style)`. Generally, though, your authorization will depend on some attribute or association of the model instance, so the authorizer can check `@llama.neck_strength` and `@llama.owner.nationality`, etc, without needing any additional information.
+You can pass extra arguments to your authorization checks in these controller helpers:
+
+- `authorize_actions_for(Llama, args: [{:mamma => true}]`
+- `authorize_action_for(@llama, :sporting => @hat_style)`
+
+Generally, though, your authorization will depend on some attribute or association of the model instance, so the authorizer can check `@llama.neck_strength` and `@llama.owner.nationality`, etc, without needing any additional information.
 
 Note that you can also call `authority_actions` as many times as you like, so you can specify one mapping at a time if you prefer:
 
@@ -402,7 +418,7 @@ class LlamasController < ApplicationController
 end
 ```
 
-If you want to authorize all actions the same way, use the special `all_actions` hash key. For instance, if you have nested resources, you might say "you're allowed to do anything you like with an employee if you're allowed to update their organization".
+If you want to authorize all actions the same way, use the special `all_actions` hash key. For instance, if you have nested resources, you might say "you're allowed to do anything you like with an employee if you're allowed to update their employer".
 
 ```ruby
 class EmployeesController < ApplicationController
@@ -485,14 +501,24 @@ end
 
 Your method will be handed the `SecurityViolation`, which has a `message` method. In case you want to build your own message, it also exposes `user`, `action` and `resource`.
 
+When a user action is successfully authorized, Authority will call `authority_success` on your controller.
+By default, this does nothing, but you can override it to log the event or do something else.
+For instance:
+
+```ruby
+def authority_success(user, action, resource)
+  Authority.logger.info "user #{user} was authorized to #{action} resource #{resource}"
+end
+```
+
 <a name="credits">
 ## Credits, AKA 'Shout-Outs'
 
 - [adamhunter](https://github.com/adamhunter) for pairing with me on this gem. The only thing faster than his typing is his brain.
 - [kevmoo](https://github.com/kevmoo), [MP211](https://github.com/MP211), and [scottmartin](https://github.com/scottmartin) for pitching in.
-- [nkallen](https://github.com/nkallen) for writing [a lovely blog post on access control](http://pivotallabs.com/users/nick/blog/articles/272-access-control-permissions-in-rails) when he worked at Pivotal Labs. I cried sweet tears of joy when I read that a couple of years ago. I was like, "Zee access code, she is so BEEUTY-FUL!"
+- [nkallen](https://github.com/nkallen) for writing [a lovely blog post on access control](http://blog.pivotal.io/labs/labs/access-control-permissions-in-rails-access-control-permissions-in-rails) when he worked at Pivotal Labs. I cried sweet tears of joy when I read that in 2010. I was like, "Zee access code, she is so BEEUTY-FUL!"
 - [jnunemaker](https://github.com/jnunemaker) for later creating [Canable](http://github.com/jnunemaker/canable), another inspiration for Authority.
-- [TMA](http://www.tma1.com) for employing me and letting me open source some of our code.
+- [TMA](http://www.tma1.com) for sponsoring the initial releases of Authority.
 
 <a name="contributing">
 

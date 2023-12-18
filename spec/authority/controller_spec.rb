@@ -16,7 +16,7 @@ describe Authority::Controller do
   context "when including" do
 
     before :each do
-      Authority::Controller.stub(:security_violation_callback).and_return(Proc.new {|exception| })
+      allow(Authority::Controller).to receive(:security_violation_callback).and_return(Proc.new {|exception| })
     end
 
     after :each do
@@ -24,7 +24,7 @@ describe Authority::Controller do
     end
 
     it "specifies rescuing security violations with a standard callback" do
-      controller_class.should_receive(:rescue_from).with(
+      expect(controller_class).to receive(:rescue_from).with(
         Authority::SecurityViolation, :with => Authority::Controller.security_violation_callback
       )
     end
@@ -55,7 +55,7 @@ describe Authority::Controller do
         # this test, so I'm stealing that behavior.
 
         Authority.configuration.security_violation_handler = :fire_ze_missiles
-        controller_instance.should_receive(:fire_ze_missiles).with(fake_exception)
+        expect(controller_instance).to receive(:fire_ze_missiles).with(fake_exception)
         controller_instance.instance_exec(fake_exception, &Authority::Controller.security_violation_callback)
 
       end
@@ -89,6 +89,12 @@ describe Authority::Controller do
 
         let(:child_controller) { Class.new(controller_class) }
 
+        let(:rails5_controller) do
+          Class.new(controller_class) do
+            def self.before_action(*args) ; end
+          end
+        end
+
         it "allows specifying the class of the model to protect" do
           controller_class.authorize_actions_for(resource_class)
           expect(controller_class.authority_resource).to eq(resource_class)
@@ -101,20 +107,26 @@ describe Authority::Controller do
 
         it "sets up a before_filter, passing the options it was given" do
           filter_options = {:only => [:show, :edit, :update]}
-          controller_class.should_receive(:before_filter).with(:run_authorization_check, filter_options)
+          expect(controller_class).to receive(:before_filter).with(:run_authorization_check, filter_options)
           controller_class.authorize_actions_for(resource_class, filter_options)
+        end
+
+        it "prefers to set up a before_action over before_filter, passing the options it was given" do
+          filter_options = {:only => [:show, :edit, :update]}
+          expect(rails5_controller).to receive(:before_action).with(:run_authorization_check, filter_options)
+          rails5_controller.authorize_actions_for(resource_class, filter_options)
         end
 
         it "if :all_actions option is given, it overrides the action hash to use the action given" do
           overridden_action_map = controller_class.authority_action_map
           overridden_action_map.update(overridden_action_map) {|k,v| v = :annihilate}
           child_controller.authorize_actions_for(resource_class, :all_actions => :annihilate)
-          child_controller.authority_action_map.should eq(overridden_action_map)
+          expect(child_controller.authority_action_map).to eq(overridden_action_map)
         end
 
         it "passes the action hash to the `add_actions` method" do
           new_actions = {:synthesize => :create, :annihilate => 'delete'}
-          child_controller.should_receive(:add_actions).with(new_actions)
+          expect(child_controller).to receive(:add_actions).with(new_actions)
           child_controller.authorize_actions_for(resource_class, :actions => new_actions)
         end
 
@@ -124,6 +136,16 @@ describe Authority::Controller do
           new_actions = {:synthesize => :create}
           child_controller.authorize_actions_for(resource_class, :actions => new_actions)
           expect(child_controller.authority_action_map).to eq(updated_map)
+        end
+
+        it "if :opts option is given, it extracts extra options for the authorization check" do
+          controller_class.authorize_actions_for(resource_class, :args => [:foo, :bar])
+          expect(controller_class.authority_arguments).to eq([:foo, :bar])
+        end
+
+        it "if :opts option wasn't given, no extra options are set" do
+          controller_class.authorize_actions_for(resource_class)
+          expect(controller_class.authority_arguments?).not_to be true
         end
 
       end
@@ -190,52 +212,52 @@ describe Authority::Controller do
         let(:controller_instance) { controller_class.new }
 
         before(:each) do
-          controller_instance.stub(:class).and_return("FooController")
-          controller_instance.stub(:action_name).and_return(:bar)
+          allow(controller_instance).to receive(:class).and_return("FooController")
+          allow(controller_instance).to receive(:action_name).and_return(:bar)
         end
 
         it "sets up an after_filter, passing the options it was given" do
           filter_options = {:only => [:show, :edit, :update]}
-          controller_class.should_receive(:after_filter).with(filter_options)
+          expect(controller_class).to receive(:after_filter).with(filter_options)
           controller_class.ensure_authorization_performed(filter_options)
         end
 
         it "triggers AuthorizationNotPerformed in after filter" do
-          controller_class.stub(:after_filter).and_yield(controller_instance)
-          lambda {
+          allow(controller_class).to receive(:after_filter).and_yield(controller_instance)
+          expect {
             controller_class.ensure_authorization_performed
-          }.should raise_error(Authority::Controller::AuthorizationNotPerformed)
+          }.to raise_error(Authority::Controller::AuthorizationNotPerformed)
         end
 
         it "AuthorizationNotPerformed error has meaningful message" do
-          controller_class.stub(:after_filter).and_yield(controller_instance)
-          lambda {
+          allow(controller_class).to receive(:after_filter).and_yield(controller_instance)
+          expect {
             controller_class.ensure_authorization_performed
-          }.should raise_error("No authorization was performed for FooController#bar")
+          }.to raise_error("No authorization was performed for FooController#bar")
         end
 
         it "does not trigger AuthorizationNotPerformed when :if is false" do
-          controller_instance.stub(:authorize?) { false }
-          controller_class.stub(:after_filter).with({}).and_yield(controller_instance)
-          lambda {
+          allow(controller_instance).to receive(:authorize?) { false }
+          allow(controller_class).to receive(:after_filter).with({}).and_yield(controller_instance)
+          expect {
             controller_class.ensure_authorization_performed(:if => :authorize?)
-          }.should_not raise_error()
+          }.not_to raise_error()
         end
 
         it "does not trigger AuthorizationNotPerformed when :unless is true" do
-          controller_instance.stub(:skip_authorization?) { true }
-          controller_class.stub(:after_filter).with({}).and_yield(controller_instance)
-          lambda {
+          allow(controller_instance).to receive(:skip_authorization?) { true }
+          allow(controller_class).to receive(:after_filter).with({}).and_yield(controller_instance)
+          expect {
             controller_class.ensure_authorization_performed(:unless => :skip_authorization?)
-          }.should_not raise_error()
+          }.not_to raise_error()
         end
 
         it "does not raise error when #authorization_performed is true" do
           controller_instance.authorization_performed = true
-          controller_class.stub(:after_filter).with({}).and_yield(controller_instance)
-          lambda {
+          allow(controller_class).to receive(:after_filter).with({}).and_yield(controller_instance)
+          expect {
             controller_class.ensure_authorization_performed
-          }.should_not raise_error()
+          }.not_to raise_error()
         end
 
       end
@@ -253,7 +275,7 @@ describe Authority::Controller do
 
       let(:controller_instance) do
         controller_class.new.tap do |cc|
-          cc.stub(Authority.configuration.user_method).and_return(user)
+          allow(cc).to receive(Authority.configuration.user_method).and_return(user)
         end
       end
 
@@ -264,10 +286,31 @@ describe Authority::Controller do
         context "if a resource class was specified" do
 
           it "checks authorization on the model specified" do
-            controller_instance.should_receive(:authorize_action_for).with(resource_class)
+            expect(controller_instance).to receive(:authorize_action_for).with(resource_class)
             controller_instance.send(:run_authorization_check)
           end
 
+        end
+
+        context "if extra opts were specified" do
+
+          let(:resource_class) { Hash }
+          let(:controller_class) do
+            Class.new(ExampleController).tap do |c|
+              c.send(:include, Authority::Controller)
+              c.authorize_actions_for(:method_to_find_class, args: [:extra, :args])
+            end
+          end
+          
+          before :each do
+            allow(controller_instance).to receive(:method_to_find_class).and_return(resource_class)
+          end
+
+          it "uses extra args in authorization check" do
+            expect(controller_instance).to receive(:authorize_action_for).with(resource_class, :extra, :args)
+            controller_instance.send(:run_authorization_check)
+          end
+          
         end
 
         context "if a method for determining the class was specified" do
@@ -284,11 +327,18 @@ describe Authority::Controller do
 
             context "and the method returns a class" do
               before :each do
-                controller_instance.stub(:method_to_find_class).and_return(resource_class)
+                allow(controller_instance).to receive(:method_to_find_class).and_return(resource_class)
               end
 
               it "checks authorization on that class" do
-                controller_instance.should_receive(:authorize_action_for).with(resource_class)
+                expect(controller_instance).to receive(:authorize_action_for).with(resource_class)
+                controller_instance.send(:run_authorization_check)
+              end
+
+              it "does not call to_a on that class" do
+                expect(controller_instance).to receive(:authorize_action_for).with(resource_class)
+                # *resource is syntactic sugar for resource.to_a
+                expect(resource_class).not_to receive(:to_a)
                 controller_instance.send(:run_authorization_check)
               end
             end
@@ -297,11 +347,11 @@ describe Authority::Controller do
               let(:some_options) { { :a => 1, :b => 2 } }
 
               before :each do
-                controller_instance.stub(:method_to_find_class).and_return([resource_class, some_options])
+                allow(controller_instance).to receive(:method_to_find_class).and_return([resource_class, some_options])
               end
 
               it "checks authorization on that class and passes the options" do
-                controller_instance.should_receive(:authorize_action_for).with(resource_class, some_options)
+                expect(controller_instance).to receive(:authorize_action_for).with(resource_class, some_options)
                 controller_instance.send(:run_authorization_check)
               end
             end
@@ -321,7 +371,7 @@ describe Authority::Controller do
         end
 
         it "raises a MissingAction if there is no corresponding action for the controller" do
-          controller_instance.stub(:action_name).and_return('sculpt')
+          allow(controller_instance).to receive(:action_name).and_return('sculpt')
           expect { controller_instance.send(:run_authorization_check) }.to raise_error(
             Authority::Controller::MissingAction
           )
@@ -331,23 +381,23 @@ describe Authority::Controller do
 
       describe "authorize_action_for" do
 
-        before(:each) { controller_instance.stub(:action_name).and_return(:destroy) }
+        before(:each) { allow(controller_instance).to receive(:action_name).and_return(:destroy) }
 
         it "calls Authority.enforce to authorize the action" do
-          Authority.should_receive(:enforce)
+          expect(Authority).to receive(:enforce)
           controller_instance.send(:authorize_action_for, resource_class)
         end
 
         it "passes along any options it was given" do
           options = {:for => 'insolence'}
-          Authority.should_receive(:enforce).with('delete', resource_class, user, options)
+          expect(Authority).to receive(:enforce).with('delete', resource_class, user, options)
           controller_instance.send(:authorize_action_for, resource_class, options)
         end
 
         it "sets correct authorization flag" do
-          Authority.stub(:enforce)
+          allow(Authority).to receive(:enforce)
           controller_instance.send(:authorize_action_for, resource_class)
-          controller_instance.authorization_performed?.should eq(true)
+          expect(controller_instance.authorization_performed?).to eq(true)
         end
 
       end
@@ -355,7 +405,7 @@ describe Authority::Controller do
       describe "authority_user" do
 
         it "gets the user for the current request from the configured user_method" do
-          controller_instance.should_receive(Authority.configuration.user_method)
+          expect(controller_instance).to receive(Authority.configuration.user_method)
           controller_instance.send(:authority_user)
         end
 
@@ -366,15 +416,15 @@ describe Authority::Controller do
         let(:mock_error) { double(:message => 'oh noes! an error!') }
 
         it "logs an error" do
-          Authority.logger.should_receive(:warn)
-          controller_instance.stub(:render)
+          expect(Authority.logger).to receive(:warn)
+          allow(controller_instance).to receive(:render)
           controller_instance.send(:authority_forbidden, mock_error)
         end
 
         it "renders the public/403.html file" do
           forbidden_page = Rails.root.join('public/403.html')
-          Authority.logger.stub(:warn)
-          controller_instance.should_receive(:render).with(:file => forbidden_page, :status => 403, :layout => false)
+          allow(Authority.logger).to receive(:warn)
+          expect(controller_instance).to receive(:render).with(:file => forbidden_page, :status => 403, :layout => false)
           controller_instance.send(:authority_forbidden, mock_error)
         end
 

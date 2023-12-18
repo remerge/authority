@@ -15,7 +15,8 @@ module Authority
 
     included do
       rescue_from(Authority::SecurityViolation, :with => Authority::Controller.security_violation_callback)
-      class_attribute :authority_resource, :instance_reader => false
+      class_attribute :authority_resource,  :instance_reader => false
+      class_attribute :authority_arguments, :instance_writer => false
     end
 
     attr_writer :authorization_performed
@@ -40,12 +41,21 @@ module Authority
       # determine that class when the request is made
       # @param [Hash] options - can contain :actions to
       # be merged with existing
-      # ones and any other options applicable to a before_filter
+      # ones and any other options applicable to a before_filter,
+      # and can contain an array of :opts to pass to the authorizer
       def authorize_actions_for(resource_or_finder, options = {})
         self.authority_resource = resource_or_finder
         add_actions(options.fetch(:actions, {}))
         force_action(options[:all_actions]) if options[:all_actions]
-        before_filter :run_authorization_check, options
+        
+        # Capture custom authorization options
+        self.authority_arguments = options.delete(:args)
+        
+        if respond_to? :before_action
+          before_action :run_authorization_check, options
+        else
+          before_filter :run_authorization_check, options
+        end
       end
 
       # Allows defining and overriding a controller's map of its actions to the model's authorizer methods
@@ -67,9 +77,15 @@ module Authority
 
       # Convenience wrapper for instance method
       def ensure_authorization_performed(options = {})
-        after_filter(options.slice(:only, :except)) do |controller_instance|
-          controller_instance.ensure_authorization_performed(options)
-        end
+        if respond_to? :after_action
+          after_action(options.slice(:only, :except)) do |controller_instance|
+             controller_instance.ensure_authorization_performed(options)
+          end
+        else
+          after_filter(options.slice(:only, :except)) do |controller_instance|
+             controller_instance.ensure_authorization_performed(options)
+          end
+        end        
       end
 
       # The controller action to authority action map used for determining
@@ -117,6 +133,10 @@ module Authority
       end
 
       Authority.enforce(authority_action, authority_resource, authority_user, *options)
+
+      # This method is always invoked, but will only log if it's overriden
+      authority_success(authority_user, authority_action, authority_resource)
+      
       self.authorization_performed = true
     end
 
@@ -128,17 +148,31 @@ module Authority
       render :file => Rails.root.join('public', '403.html'), :status => 403, :layout => false
     end
 
+    # This method can be overloaded inside the application controller, similar to authority_forbidden.
+    def authority_success(user, action, resource)
+      # Do nothing by default, but provide the option for users to override if they will.
+    end
+
     private
 
     # The `before_filter` that will be setup to run when the class method
     # `authorize_actions_for` is called
     def run_authorization_check
-      authorize_action_for(*instance_authority_resource)
+      if instance_authority_resource.is_a?(Array)
+        # Array includes options; pass as separate args
+        authorize_action_for(*instance_authority_resource, *authority_arguments)
+      else
+        # *resource would be interpreted as resource.to_a, which is wrong and
+        # actually triggers a query if it's a Sequel model
+        authorize_action_for(instance_authority_resource, *authority_arguments)
+      end
     end
 
     def instance_authority_resource
-      return self.class.authority_resource       if self.class.authority_resource.is_a?(Class)
-      send(self.class.authority_resource)
+      case self.class.authority_resource
+      when Class          then self.class.authority_resource
+      when String, Symbol then send(self.class.authority_resource)
+      end
     rescue NoMethodError
       raise MissingResource.new(
           "Trying to authorize actions for '#{self.class.authority_resource}', but can't. \

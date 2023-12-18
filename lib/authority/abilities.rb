@@ -18,7 +18,7 @@ module Authority
       # - If there is none, use 'ApplicationAuthorizer'
       self.authorizer_name = begin
         "#{base.name}Authorizer".constantize.name
-      rescue NameError => e
+      rescue NameError
         "ApplicationAuthorizer"
       end
     end
@@ -59,4 +59,6 @@ module Authority
     end
 
   end
+
+  NoAuthorizerError = Class.new(RuntimeError)
 end

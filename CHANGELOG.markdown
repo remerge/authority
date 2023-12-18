@@ -4,7 +4,31 @@ Authority does its best to use [semantic versioning](http://semver.org).
 
 ## Unreleased
 
-Nothing
+(nothing)
+
+## 3.3.0
+
+- [Allow defining `authority_success` controller action to handle successful authorization](https://github.com/nathanl/authority/pull/119), thanks to [John Poulin](https://github.com/forced-request)
+
+## 3.2.2
+
+- [Fix Rails 5 `after_filter` deprecation warning](https://github.com/nathanl/authority/pull/115), thanks to [Erik Axel Nielsen](https://github.com/erikaxel))
+
+## 3.2.1
+
+- Allow supplying extra arguments to authorizers in `authorize_actions_for` via the `:args` parameter.
+- Resume CI testing against multiple versions of Ruby and Rails, thanks to [Douglas Teoh's work](https://github.com/nathanl/authority/pull/112).
+
+## 3.2.0
+
+- [Fix Rails 5 deprecation warning](https://github.com/nathanl/authority/pull/110), thanks to [Douglas Teoh](https://github.com/dteoh)
+- CI now only testing latest MRI (2.3.1) and latest Rails (5.0.0). Nothing has been changed to deliberately drop support for older versions; I just don't have time to figure out [the various issues with installing gems and running tests for other versions](https://travis-ci.org/nathanl/authority/builds/142925459). If someone wants to add back some versions [I dropped](https://github.com/nathanl/authority/commit/a91971bc4b30ddbfdc455805fa2566b537f28b6f), PRs are welcome.
+
+## 3.1.0
+
+- Allow changing the logger by updating the configuration (see commit 0214d24), based on [a question](https://github.com/nathanl/authority/issues/101) from [Nate Bird](https://github.com/natebird)
+- Authorizers can now have an instance default method (`def default`), thanks to [Pascal Friederich](https://github.com/paukul)
+- Fix "wrong number of arguments" bug for Sequel users, reported by [Sebastian Porto](https://github.com/sporto) in [Issue 100](https://github.com/nathanl/authority/issues/100)
 
 ## v3.0.0
 

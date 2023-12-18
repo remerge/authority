@@ -13,6 +13,20 @@ describe Authority::Authorizer do
 
   describe "instance methods" do
 
+    it "calls the instance default method if no instance method is defined" do
+      expect(authorizer).to receive(:default)
+      authorizer.creatable_by?(user)
+    end
+
+    context "the instance default method" do
+
+      it "delegates to the class default method" do
+        expect(authorizer.class).to receive(:default)
+        authorizer.default(:creatable, user)
+      end
+
+    end
+
     Authority.adjectives.each do |adjective|
       method_name = "#{adjective}_by?"
 
@@ -25,7 +39,7 @@ describe Authority::Authorizer do
         context "when given an options hash" do
 
           it "delegates `#{method_name}` to the corresponding class method, passing the options" do
-            authorizer.class.should_receive(method_name).with(user, :under => 'God')
+            expect(authorizer.class).to receive(method_name).with(user, :under => 'God')
             authorizer.send(method_name, user, :under => 'God')
           end
 
@@ -34,7 +48,7 @@ describe Authority::Authorizer do
         context "when not given an options hash" do
 
           it "delegates `#{method_name}` to the corresponding class method, passing no options" do
-            authorizer.class.should_receive(method_name).with(user)
+            expect(authorizer.class).to receive(method_name).with(user)
             authorizer.send(method_name, user)
           end
 
@@ -61,7 +75,7 @@ describe Authority::Authorizer do
 
           it "delegates `#{method_name}` to the authorizer's `default` method, passing the options" do
             able = method_name.sub('_by?', '').to_sym
-            Authority::Authorizer.should_receive(:default).with(able, user, :with => 'gusto')
+            expect(Authority::Authorizer).to receive(:default).with(able, user, :with => 'gusto')
             Authority::Authorizer.send(method_name, user, :with => 'gusto')
           end
 
@@ -71,7 +85,7 @@ describe Authority::Authorizer do
 
           it "delegates `#{method_name}` to the authorizer's `default` method, passing no options" do
             able = method_name.sub('_by?', '').to_sym
-            Authority::Authorizer.should_receive(:default).with(able, user)
+            expect(Authority::Authorizer).to receive(:default).with(able, user)
             Authority::Authorizer.send(method_name, user)
           end
 
