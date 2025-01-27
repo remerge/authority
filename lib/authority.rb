@@ -41,7 +41,7 @@ module Authority
 
   def self.action_authorized?(action, resource, user, options = {})
     raise MissingUser if user.nil?
-    resource_and_maybe_options = [resource, options].tap {|args| args.pop if args.last == {}}
+    resource_and_maybe_options = [resource, options].tap {|args| args.pop if args.last.empty?}
     user.send("can_#{action}?", *resource_and_maybe_options)
   end
 
